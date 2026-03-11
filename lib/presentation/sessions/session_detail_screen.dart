@@ -2,16 +2,17 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:flutter/material.dart';
 import 'package:otp/otp.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:proctor/data/models/exam_session.dart';
 import 'package:proctor/data/models/user_role.dart';
+import 'package:proctor/presentation/common/blue_gradient_background.dart';
 import 'package:proctor/presentation/common/section_card.dart';
 import 'package:proctor/state/auth_controller.dart';
 import 'package:proctor/state/session_controller.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 /// Session detail screen showing QR payload and live OTP codes.
 class SessionDetailScreen extends StatefulWidget {
@@ -63,126 +64,124 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(session.name)),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          SectionCard(
-            title: 'Informasi Sesi',
-            subtitle:
-                'OTP tetap digenerate lokal dari secret yang ada di memori scaffold.',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Status: ${session.status.label}'),
-                const SizedBox(height: 8),
-                Text('URL: ${session.examUrl}'),
-                const SizedBox(height: 8),
-                Text('Mulai: ${session.startsAt}'),
-                const SizedBox(height: 8),
-                Text('Selesai: ${session.endsAt}'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _OtpCard(
-            title: 'Exit OTP',
-            code: exitOtp,
-            secondsLeft: secondsLeft,
-            description:
-                'Dipakai pengawas untuk mengakhiri ujian siswa secara normal.',
-          ),
-          const SizedBox(height: 16),
-          _OtpCard(
-            title: 'Alarm OTP',
-            code: alarmOtp,
-            secondsLeft: secondsLeft,
-            description:
-                'Dipakai admin/pengawas untuk reset layar cheat warning.',
-          ),
-          if (isSuperAdmin) ...[
-            const SizedBox(height: 16),
+      body: BlueGradientBackground(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
             SectionCard(
-              title: 'QR Sesi',
+              title: 'Informasi Sesi',
               subtitle:
-                  'Super admin menghasilkan QR dari payload JSON yang berisi URL, session id, exit secret, dan alarm secret.',
+                  'OTP tetap digenerate lokal dari secret yang ada di memori scaffold.',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: QrImageView(
-                          data: qrPayload,
-                          size: 240,
-                          backgroundColor: Colors.white,
+                  Text('Status: ${session.status.label}'),
+                  const SizedBox(height: 8),
+                  Text('URL: ${session.examUrl}'),
+                  const SizedBox(height: 8),
+                  Text('Mulai: ${session.startsAt}'),
+                  const SizedBox(height: 8),
+                  Text('Selesai: ${session.endsAt}'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _OtpCard(
+              title: 'Exit OTP',
+              code: exitOtp,
+              secondsLeft: secondsLeft,
+              description:
+                  'Dipakai pengawas untuk mengakhiri ujian siswa secara normal.',
+            ),
+            const SizedBox(height: 16),
+            _OtpCard(
+              title: 'Alarm OTP',
+              code: alarmOtp,
+              secondsLeft: secondsLeft,
+              description:
+                  'Dipakai admin/pengawas untuk reset layar cheat warning.',
+            ),
+            if (isSuperAdmin) ...[
+              const SizedBox(height: 16),
+              SectionCard(
+                title: 'QR Sesi',
+                subtitle:
+                    'Super admin menghasilkan QR dari payload JSON yang berisi URL, session id, exit secret, dan alarm secret.',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: QrImageView(
+                            data: qrPayload,
+                            size: 240,
+                            backgroundColor: Colors.white,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: _isDownloading
-                            ? null
-                            : () => _downloadQrCode(
-                                context: context,
-                                session: session,
-                                payload: qrPayload,
-                              ),
-                        icon: const Icon(Icons.download),
-                        label: Text(
-                          _isDownloading ? 'Mengunduh...' : 'Download QR',
-                        ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _isDownloading
+                          ? null
+                          : () => _downloadQrCode(
+                              context: context,
+                              session: session,
+                              payload: qrPayload,
+                            ),
+                      icon: const Icon(Icons.download),
+                      label: Text(
+                        _isDownloading ? 'Mengunduh...' : 'Download QR',
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            SectionCard(
-              title: 'Payload QR',
-              subtitle: 'Format JSON ini sesuai rule integrasi dengan ExamBro.',
-              child: SelectableText(qrPayload),
-            ),
-            const SizedBox(height: 16),
-            SectionCard(
-              title: 'Aksi Super Admin',
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  FilledButton.tonal(
-                    onPressed: session.status == SessionStatus.active
-                        ? null
-                        : () => _updateStatus(context, SessionStatus.active),
-                    child: const Text('Aktifkan'),
-                  ),
-                  FilledButton.tonal(
-                    onPressed: session.status == SessionStatus.ended
-                        ? null
-                        : () => _updateStatus(context, SessionStatus.ended),
-                    child: const Text('Akhiri'),
-                  ),
-                  FilledButton.tonal(
-                    onPressed: session.status == SessionStatus.scheduled
-                        ? null
-                        : () => _updateStatus(context, SessionStatus.scheduled),
-                    child: const Text('Jadwalkan Ulang'),
-                  ),
-                ],
+              const SizedBox(height: 16),
+              SectionCard(
+                title: 'Payload QR',
+                subtitle:
+                    'Format JSON ini sesuai rule integrasi dengan ExamBro.',
+                child: SelectableText(qrPayload),
               ),
-            ),
+              const SizedBox(height: 16),
+              SectionCard(
+                title: 'Aksi Super Admin',
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    FilledButton.tonal(
+                      onPressed: session.status == SessionStatus.active
+                          ? null
+                          : () => _updateStatus(context, SessionStatus.active),
+                      child: const Text('Aktifkan'),
+                    ),
+                    FilledButton.tonal(
+                      onPressed: session.status == SessionStatus.ended
+                          ? null
+                          : () => _updateStatus(context, SessionStatus.ended),
+                      child: const Text('Akhiri'),
+                    ),
+                    FilledButton.tonal(
+                      onPressed: session.status == SessionStatus.scheduled
+                          ? null
+                          : () =>
+                                _updateStatus(context, SessionStatus.scheduled),
+                      child: const Text('Jadwalkan Ulang'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -224,7 +223,6 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         version: QrVersions.auto,
         gapless: true,
         color: Colors.black,
-        emptyColor: Colors.white,
       );
       final imageData = await painter.toImageData(2048);
       final bytes = imageData?.buffer.asUint8List();

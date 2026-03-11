@@ -90,6 +90,30 @@ class AuthRepository {
     return user;
   }
 
+  /// Creates a new active proctor account directly from super admin flow.
+  AppUser createManagedProctor({
+    required String email,
+    required String displayName,
+    required String password,
+  }) {
+    final normalizedEmail = email.trim().toLowerCase();
+    final id = 'u-${_users.length + 1}';
+
+    final user = AppUser(
+      id: id,
+      email: normalizedEmail,
+      displayName: displayName.trim(),
+      role: UserRole.proctor,
+      createdAt: DateTime.now(),
+      isActive: true,
+    );
+
+    _users.add(user);
+    _passwords[normalizedEmail] = password;
+
+    return user;
+  }
+
   /// Updates a user's role and active flag.
   AppUser updateUser({required String userId, UserRole? role, bool? isActive}) {
     final index = _users.indexWhere((user) => user.id == userId);

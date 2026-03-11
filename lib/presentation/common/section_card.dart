@@ -28,6 +28,8 @@ class SectionCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
+      clipBehavior: Clip.antiAlias,
+      shadowColor: const Color(0xFF0A66D9).withValues(alpha: 0.14),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -39,10 +41,20 @@ class SectionCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: textTheme.titleLarge),
+                      Text(
+                        title,
+                        style: textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                       if (subtitle != null) ...[
                         const SizedBox(height: 4),
-                        Text(subtitle!, style: textTheme.bodyMedium),
+                        Text(
+                          subtitle!,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: const Color(0xFF415A7E),
+                          ),
+                        ),
                       ],
                     ],
                   ),

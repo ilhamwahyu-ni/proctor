@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:proctor/data/models/app_user.dart';
 import 'package:proctor/data/models/exam_session.dart';
+import 'package:proctor/presentation/common/blue_gradient_background.dart';
 import 'package:proctor/presentation/common/section_card.dart';
 import 'package:proctor/state/auth_controller.dart';
 import 'package:proctor/state/session_controller.dart';
@@ -21,7 +22,19 @@ class AdminDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard Super Admin'),
+        flexibleSpace: const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0x803A86FF), Color(0x80278AFF), Color(0x8052A3FF)],
+            ),
+          ),
+        ),
         actions: [
+          IconButton(
+            onPressed: () => _showCreateProctorDialog(context),
+            icon: const Icon(Icons.person_add_alt_1),
+            tooltip: 'Tambah proctor',
+          ),
           IconButton(
             onPressed: () => _showCreateSessionDialog(context),
             icon: const Icon(Icons.add_task),
@@ -33,57 +46,62 @@ class AdminDashboardScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          _OverviewCard(
-            totalSessions: sessions.length,
-            activeSessions: sessions
-                .where((s) => s.status == SessionStatus.active)
-                .length,
-            pendingUsers: authController.pendingUsers.length,
-          ),
-          const SizedBox(height: 16),
-          SectionCard(
-            title: 'Approval Proctor',
-            subtitle:
-                'User baru harus diubah dari pending menjadi proctor aktif.',
-            child: authController.pendingUsers.isEmpty
-                ? const Text('Tidak ada user pending.')
-                : Column(
-                    children: authController.pendingUsers
-                        .map((user) => _PendingUserRow(user: user))
-                        .toList(),
-                  ),
-          ),
-          const SizedBox(height: 16),
-          SectionCard(
-            title: 'Proctor Aktif',
-            subtitle:
-                'Super admin tetap memegang kontrol aktivasi akun pengawas.',
-            child: Column(
-              children: authController.approvedProctors
-                  .map((user) => _ProctorRow(user: user))
-                  .toList(),
+      body: BlueGradientBackground(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            _OverviewCard(
+              totalSessions: sessions.length,
+              activeSessions: sessions
+                  .where((s) => s.status == SessionStatus.active)
+                  .length,
+              pendingUsers: authController.pendingUsers.length,
             ),
-          ),
-          const SizedBox(height: 16),
-          SectionCard(
-            title: 'Sesi Ujian',
-            subtitle:
-                'Super admin bisa membuat, mengaktifkan, dan mengakhiri sesi.',
-            trailing: FilledButton.icon(
-              onPressed: () => _showCreateSessionDialog(context),
-              icon: const Icon(Icons.add),
-              label: const Text('Buat Sesi'),
+            const SizedBox(height: 16),
+            SectionCard(
+              title: 'Approval Proctor',
+              subtitle:
+                  'User baru harus diubah dari pending menjadi proctor aktif.',
+              child: authController.pendingUsers.isEmpty
+                  ? const Text('Tidak ada user pending.')
+                  : Column(
+                      children: authController.pendingUsers
+                          .map((user) => _PendingUserRow(user: user))
+                          .toList(),
+                    ),
             ),
-            child: Column(
-              children: sessions
-                  .map((session) => _SessionRow(session: session))
-                  .toList(),
+            const SizedBox(height: 16),
+            SectionCard(
+              title: 'Proctor Aktif',
+              subtitle:
+                  'Daftar pengawas aktif menggunakan pagination agar list tetap ringkas.',
+              trailing: FilledButton.icon(
+                onPressed: () => _showCreateProctorDialog(context),
+                icon: const Icon(Icons.person_add_alt_1),
+                label: const Text('Tambah Proctor'),
+              ),
+              child: _ActiveProctorPagination(
+                proctors: authController.activeProctors,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            SectionCard(
+              title: 'Sesi Ujian',
+              subtitle:
+                  'Super admin bisa membuat, mengaktifkan, dan mengakhiri sesi.',
+              trailing: FilledButton.icon(
+                onPressed: () => _showCreateSessionDialog(context),
+                icon: const Icon(Icons.add),
+                label: const Text('Buat Sesi'),
+              ),
+              child: Column(
+                children: sessions
+                    .map((session) => _SessionRow(session: session))
+                    .toList(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -166,6 +184,84 @@ class AdminDashboardScreen extends StatelessWidget {
     nameController.dispose();
     urlController.dispose();
     durationController.dispose();
+  }
+
+  Future<void> _showCreateProctorDialog(BuildContext context) async {
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Tambah User Proctor'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Nama proctor'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Password awal'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final success = await context
+                    .read<AuthController>()
+                    .createManagedProctor(
+                      email: emailController.text,
+                      displayName: nameController.text,
+                      password: passwordController.text,
+                    );
+
+                if (!context.mounted) {
+                  return;
+                }
+
+                if (!success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Email proctor sudah terdaftar.'),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('User proctor berhasil ditambahkan.'),
+                  ),
+                );
+              },
+              child: const Text('Tambah'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
   }
 }
 
@@ -253,6 +349,76 @@ class _ProctorRow extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _ActiveProctorPagination extends StatefulWidget {
+  const _ActiveProctorPagination({required this.proctors});
+
+  final List<AppUser> proctors;
+
+  @override
+  State<_ActiveProctorPagination> createState() =>
+      _ActiveProctorPaginationState();
+}
+
+class _ActiveProctorPaginationState extends State<_ActiveProctorPagination> {
+  static const int _pageSize = 4;
+  int _page = 0;
+
+  @override
+  void didUpdateWidget(covariant _ActiveProctorPagination oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final maxPage = _pageCount == 0 ? 0 : _pageCount - 1;
+    if (_page > maxPage) {
+      _page = maxPage;
+    }
+  }
+
+  int get _pageCount {
+    return (widget.proctors.length / _pageSize).ceil();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.proctors.isEmpty) {
+      return const Text('Belum ada proctor aktif.');
+    }
+
+    final start = _page * _pageSize;
+    final end = (start + _pageSize).clamp(0, widget.proctors.length);
+    final items = widget.proctors.sublist(start, end);
+
+    return Column(
+      children: [
+        ...items.map((user) => _ProctorRow(user: user)),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Halaman ${_page + 1} dari $_pageCount'),
+            Wrap(
+              spacing: 8,
+              children: [
+                FilledButton.tonal(
+                  onPressed: _page == 0
+                      ? null
+                      : () => setState(() => _page -= 1),
+                  child: const Text('Sebelumnya'),
+                ),
+                FilledButton.tonal(
+                  onPressed: _page >= _pageCount - 1
+                      ? null
+                      : () => setState(() => _page += 1),
+                  child: const Text('Berikutnya'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

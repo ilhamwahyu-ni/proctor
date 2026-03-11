@@ -37,6 +37,11 @@ class AuthController extends ChangeNotifier {
     return allUsers.where((user) => user.role == UserRole.proctor).toList();
   }
 
+  /// Active proctor users only.
+  List<AppUser> get activeProctors {
+    return approvedProctors.where((user) => user.isActive).toList();
+  }
+
   /// Marks the controller ready for routing decisions.
   void initialize() {
     _isReady = true;
@@ -68,6 +73,25 @@ class AuthController extends ChangeNotifier {
     }
 
     _currentUser = _authRepository.register(
+      email: email,
+      displayName: displayName,
+      password: password,
+    );
+    notifyListeners();
+    return true;
+  }
+
+  /// Creates a proctor account directly from the super admin dashboard.
+  Future<bool> createManagedProctor({
+    required String email,
+    required String displayName,
+    required String password,
+  }) async {
+    if (_authRepository.emailExists(email)) {
+      return false;
+    }
+
+    _authRepository.createManagedProctor(
       email: email,
       displayName: displayName,
       password: password,
