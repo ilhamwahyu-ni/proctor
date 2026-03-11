@@ -43,7 +43,7 @@ class ProctorDashboardScreen extends StatelessWidget {
               subtitle:
                   'Halaman ini hanya menampilkan sesi dengan status active sesuai rule role proctor.',
               child: const Text(
-                'Buka detail sesi untuk melihat Exit OTP dan Alarm OTP yang digenerate lokal tiap 30 detik.',
+                'Buka detail sesi untuk melihat Exit OTP yang berlaku 60 menit dan Alarm OTP yang berlaku 30 detik.',
               ),
             ),
             const SizedBox(height: 16),

@@ -27,6 +27,9 @@ class SessionDetailScreen extends StatefulWidget {
 }
 
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
+  static const int _exitOtpIntervalSeconds = 3600;
+  static const int _alarmOtpIntervalSeconds = 30;
+
   late final Timer _timer;
   DateTime _now = DateTime.now();
   bool _isDownloading = false;
@@ -57,10 +60,21 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       return const Scaffold(body: Center(child: Text('Sesi tidak ditemukan.')));
     }
 
-    final secondsLeft = 30 - (_now.second % 30);
-    final exitOtp = _generateOtp(session.exitSecret);
-    final alarmOtp = _generateOtp(session.alarmSecret);
-    final qrPayload = _buildQrPayload(session);
+    final exitSecondsLeft =
+        _exitOtpIntervalSeconds -
+        (_now.millisecondsSinceEpoch ~/ 1000 % _exitOtpIntervalSeconds);
+    final alarmSecondsLeft =
+        _alarmOtpIntervalSeconds -
+        (_now.millisecondsSinceEpoch ~/ 1000 % _alarmOtpIntervalSeconds);
+    final exitOtp = _generateOtp(
+      session.exitSecret,
+      intervalSeconds: _exitOtpIntervalSeconds,
+    );
+    final alarmOtp = _generateOtp(
+      session.alarmSecret,
+      intervalSeconds: _alarmOtpIntervalSeconds,
+    );
+    final qrPayload = isSuperAdmin ? _buildQrPayload(session) : null;
 
     return Scaffold(
       appBar: AppBar(title: Text(session.name)),
@@ -89,17 +103,17 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             _OtpCard(
               title: 'Exit OTP',
               code: exitOtp,
-              secondsLeft: secondsLeft,
+              secondsLeft: exitSecondsLeft,
               description:
-                  'Dipakai pengawas untuk mengakhiri ujian siswa secara normal.',
+                  'Dipakai pengawas untuk mengakhiri ujian siswa secara normal. Masa berlaku 60 menit.',
             ),
             const SizedBox(height: 16),
             _OtpCard(
               title: 'Alarm OTP',
               code: alarmOtp,
-              secondsLeft: secondsLeft,
+              secondsLeft: alarmSecondsLeft,
               description:
-                  'Dipakai admin/pengawas untuk reset layar cheat warning.',
+                  'Dipakai admin/pengawas untuk reset layar cheat warning. Masa berlaku 30 detik.',
             ),
             if (isSuperAdmin) ...[
               const SizedBox(height: 16),
@@ -119,7 +133,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(20),
                           child: QrImageView(
-                            data: qrPayload,
+                            data: qrPayload!,
                             size: 240,
                             backgroundColor: Colors.white,
                           ),
@@ -186,11 +200,11 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     );
   }
 
-  String _generateOtp(String secret) {
+  String _generateOtp(String secret, {required int intervalSeconds}) {
     return OTP.generateTOTPCodeString(
       secret,
       _now.millisecondsSinceEpoch,
-      interval: 30,
+      interval: intervalSeconds,
       algorithm: Algorithm.SHA1,
       isGoogle: true,
     );
@@ -205,6 +219,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       'url': session.examUrl,
       'session_id': session.id,
       'duration_minutes': durationMinutes,
+      'exit_otp_interval_seconds': _exitOtpIntervalSeconds,
+      'alarm_otp_interval_seconds': _alarmOtpIntervalSeconds,
       'exit_secret': session.exitSecret,
       'alarm_secret': session.alarmSecret,
     });
@@ -283,7 +299,9 @@ class _OtpCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = secondsLeft / 30;
+    final progress = secondsLeft <= 30
+        ? secondsLeft / 30
+        : (secondsLeft / 3600).clamp(0.0, 1.0);
     final digits = code.split('').join(' ');
 
     return SectionCard(
@@ -296,9 +314,24 @@ class _OtpCard extends StatelessWidget {
           const SizedBox(height: 12),
           LinearProgressIndicator(value: progress),
           const SizedBox(height: 8),
-          Text('Berlaku $secondsLeft detik lagi'),
+          Text(_buildRemainingLabel(secondsLeft)),
         ],
       ),
     );
+  }
+
+  String _buildRemainingLabel(int totalSeconds) {
+    if (totalSeconds >= 60) {
+      final hours = totalSeconds ~/ 3600;
+      final minutes = (totalSeconds % 3600) ~/ 60;
+
+      if (hours > 0) {
+        return 'Berlaku $hours jam ${minutes.toString().padLeft(2, '0')} menit lagi';
+      }
+
+      return 'Berlaku $minutes menit lagi';
+    }
+
+    return 'Berlaku $totalSeconds detik lagi';
   }
 }

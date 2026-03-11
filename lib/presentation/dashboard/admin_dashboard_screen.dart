@@ -71,6 +71,8 @@ class AdminDashboardScreen extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 16),
+            const _CreateProctorSection(),
+            const SizedBox(height: 16),
             SectionCard(
               title: 'Proctor Aktif',
               subtitle:
@@ -349,6 +351,107 @@ class _ProctorRow extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _CreateProctorSection extends StatefulWidget {
+  const _CreateProctorSection();
+
+  @override
+  State<_CreateProctorSection> createState() => _CreateProctorSectionState();
+}
+
+class _CreateProctorSectionState extends State<_CreateProctorSection> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      title: 'Tambah Proctor',
+      subtitle:
+          'Super admin bisa membuat akun pengawas aktif secara langsung dari dashboard.',
+      child: Column(
+        children: [
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(labelText: 'Nama proctor'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _passwordController,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Password awal'),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _isSubmitting ? null : _submit,
+              icon: const Icon(Icons.person_add_alt_1),
+              label: Text(_isSubmitting ? 'Menambahkan...' : 'Tambah Proctor'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    final displayName = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (displayName.isEmpty || email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama, email, dan password wajib diisi.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    final success = await context.read<AuthController>().createManagedProctor(
+      email: email,
+      displayName: displayName,
+      password: password,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isSubmitting = false);
+
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email proctor sudah terdaftar.')),
+      );
+      return;
+    }
+
+    _nameController.clear();
+    _emailController.clear();
+    _passwordController.clear();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('User proctor berhasil ditambahkan.')),
     );
   }
 }
