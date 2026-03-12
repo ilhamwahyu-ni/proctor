@@ -22,10 +22,14 @@ class AdminDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard Super Admin'),
-        flexibleSpace: const DecoratedBox(
+        flexibleSpace: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0x803A86FF), Color(0x80278AFF), Color(0x8052A3FF)],
+              colors: [
+                Theme.of(context).colorScheme.primaryContainer,
+                Theme.of(context).colorScheme.secondaryContainer,
+                Theme.of(context).colorScheme.primaryContainer,
+              ],
             ),
           ),
         ),
@@ -173,7 +177,7 @@ class AdminDashboardScreen extends StatelessWidget {
                 Navigator.of(dialogContext).pop();
 
                 if (session != null) {
-                  context.go('/sessions/${session.id}');
+                  context.push('/sessions/${session.id}');
                 }
               },
               child: const Text('Simpan'),
@@ -538,7 +542,7 @@ class _SessionRow extends StatelessWidget {
       title: Text(session.name),
       subtitle: Text('${session.status.label} • ${session.examUrl}'),
       trailing: FilledButton.tonal(
-        onPressed: () => context.go('/sessions/${session.id}'),
+        onPressed: () => context.push('/sessions/${session.id}'),
         child: const Text('Detail'),
       ),
     );

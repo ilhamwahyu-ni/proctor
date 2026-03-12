@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     'Proctor App',
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: const Color(0xFF073B8A),
+                      color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     'Login sebagai super admin atau proctor untuk melihat sesi aktif dan kode OTP lokal.',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: const Color(0xFF26466E),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 24),

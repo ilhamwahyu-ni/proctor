@@ -11,6 +11,14 @@ class ProctorDashboardScreen extends StatelessWidget {
   /// Creates the proctor dashboard.
   const ProctorDashboardScreen({super.key});
 
+  String _maskExamUrl(String url) {
+    if (url.length <= 20) {
+      return '....';
+    }
+
+    return '${url.substring(0, url.length - 20)}....';
+  }
+
   @override
   Widget build(BuildContext context) {
     final authController = context.watch<AuthController>();
@@ -19,10 +27,14 @@ class ProctorDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sesi Aktif'),
-        flexibleSpace: const DecoratedBox(
+        flexibleSpace: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0x803A86FF), Color(0x80278AFF), Color(0x8052A3FF)],
+              colors: [
+                Theme.of(context).colorScheme.primaryContainer,
+                Theme.of(context).colorScheme.secondaryContainer,
+                Theme.of(context).colorScheme.primaryContainer,
+              ],
             ),
           ),
         ),
@@ -57,10 +69,10 @@ class ProctorDashboardScreen extends StatelessWidget {
                             (session) => ListTile(
                               contentPadding: EdgeInsets.zero,
                               title: Text(session.name),
-                              subtitle: Text(session.examUrl),
+                              subtitle: Text(_maskExamUrl(session.examUrl)),
                               trailing: FilledButton(
                                 onPressed: () =>
-                                    context.go('/sessions/${session.id}'),
+                                    context.push('/sessions/${session.id}'),
                                 child: const Text('Lihat OTP'),
                               ),
                             ),

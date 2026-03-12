@@ -34,6 +34,14 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   DateTime _now = DateTime.now();
   bool _isDownloading = false;
 
+  String _maskExamUrl(String url) {
+    if (url.length <= 20) {
+      return '....';
+    }
+
+    return '${url.substring(0, url.length - 20)}....';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +83,9 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       intervalSeconds: _alarmOtpIntervalSeconds,
     );
     final qrPayload = isSuperAdmin ? _buildQrPayload(session) : null;
+    final displayedExamUrl = isSuperAdmin
+        ? session.examUrl
+        : _maskExamUrl(session.examUrl);
 
     return Scaffold(
       appBar: AppBar(title: Text(session.name)),
@@ -91,11 +102,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 children: [
                   Text('Status: ${session.status.label}'),
                   const SizedBox(height: 8),
-                  Text('URL: ${session.examUrl}'),
-                  const SizedBox(height: 8),
-                  Text('Mulai: ${session.startsAt}'),
-                  const SizedBox(height: 8),
-                  Text('Selesai: ${session.endsAt}'),
+                  Text('URL: $displayedExamUrl'),
                 ],
               ),
             ),
@@ -127,7 +134,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                     Center(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.surfaceContainerLowest,
                           borderRadius: BorderRadius.circular(24),
                         ),
                         child: Padding(
@@ -145,7 +152,6 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                       onPressed: _isDownloading
                           ? null
                           : () => _downloadQrCode(
-                              context: context,
                               session: session,
                               payload: qrPayload,
                             ),
@@ -219,6 +225,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       'url': session.examUrl,
       'session_id': session.id,
       'duration_minutes': durationMinutes,
+      'ends_at': session.endsAt.toUtc().toIso8601String(),
       'exit_otp_interval_seconds': _exitOtpIntervalSeconds,
       'alarm_otp_interval_seconds': _alarmOtpIntervalSeconds,
       'exit_secret': session.exitSecret,
@@ -227,7 +234,6 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   }
 
   Future<void> _downloadQrCode({
-    required BuildContext context,
     required ExamSession session,
     required String payload,
   }) async {
@@ -238,7 +244,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         data: payload,
         version: QrVersions.auto,
         gapless: true,
-        color: Colors.black,
+        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
+        dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
       );
       final imageData = await painter.toImageData(2048);
       final bytes = imageData?.buffer.asUint8List();

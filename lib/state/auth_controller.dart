@@ -43,7 +43,8 @@ class AuthController extends ChangeNotifier {
   }
 
   /// Marks the controller ready for routing decisions.
-  void initialize() {
+  Future<void> initialize() async {
+    _currentUser = await _authRepository.restoreUser();
     _isReady = true;
     notifyListeners();
   }
@@ -58,6 +59,7 @@ class AuthController extends ChangeNotifier {
     }
 
     _currentUser = user;
+    await _authRepository.persistUserId(user.id);
     notifyListeners();
     return true;
   }
@@ -77,6 +79,7 @@ class AuthController extends ChangeNotifier {
       displayName: displayName,
       password: password,
     );
+    await _authRepository.persistUserId(_currentUser!.id);
     notifyListeners();
     return true;
   }
@@ -103,6 +106,7 @@ class AuthController extends ChangeNotifier {
   /// Signs the current user out.
   Future<void> signOut() async {
     _currentUser = null;
+    await _authRepository.persistUserId(null);
     notifyListeners();
   }
 

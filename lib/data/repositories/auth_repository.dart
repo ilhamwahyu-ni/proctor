@@ -1,10 +1,13 @@
 import 'package:proctor/data/models/app_user.dart';
 import 'package:proctor/data/models/user_role.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// In-memory auth repository used to scaffold Proctor flows before Firebase.
 class AuthRepository {
   /// Creates the repository with seeded users.
   AuthRepository() : _users = _seedUsers();
+
+  static const _keyUserId = 'auth_user_id';
 
   final List<AppUser> _users;
   final Map<String, String> _passwords = {
@@ -127,5 +130,23 @@ class AuthRepository {
   bool emailExists(String email) {
     final normalizedEmail = email.trim().toLowerCase();
     return _users.any((user) => user.email == normalizedEmail);
+  }
+
+  /// Persists the currently signed-in user ID.
+  Future<void> persistUserId(String? userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (userId == null) {
+      await prefs.remove(_keyUserId);
+    } else {
+      await prefs.setString(_keyUserId, userId);
+    }
+  }
+
+  /// Restores the previously signed-in user, if any.
+  Future<AppUser?> restoreUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_keyUserId);
+    if (userId == null) return null;
+    return _users.where((u) => u.id == userId).firstOrNull;
   }
 }

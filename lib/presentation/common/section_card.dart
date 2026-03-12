@@ -25,11 +25,13 @@ class SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final cs = theme.colorScheme;
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      shadowColor: const Color(0xFF0A66D9).withValues(alpha: 0.14),
+      shadowColor: cs.shadow.withValues(alpha: 0.14),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -52,14 +54,14 @@ class SectionCard extends StatelessWidget {
                         Text(
                           subtitle!,
                           style: textTheme.bodyMedium?.copyWith(
-                            color: const Color(0xFF415A7E),
+                            color: cs.onSurfaceVariant,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                if (trailing != null) trailing!,
+                ?trailing,
               ],
             ),
             const SizedBox(height: 16),

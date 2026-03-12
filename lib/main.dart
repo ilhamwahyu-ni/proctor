@@ -7,7 +7,10 @@ import 'package:proctor/data/repositories/session_repository.dart';
 import 'package:proctor/state/auth_controller.dart';
 import 'package:proctor/state/session_controller.dart';
 
-void main() => runApp(const ProctorBootstrap());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const ProctorBootstrap());
+}
 
 /// Boots the Proctor application with repositories and shared state.
 class ProctorBootstrap extends StatelessWidget {
@@ -21,8 +24,11 @@ class ProctorBootstrap extends StatelessWidget {
         Provider<AuthRepository>(create: (_) => AuthRepository()),
         Provider<SessionRepository>(create: (_) => SessionRepository()),
         ChangeNotifierProvider<AuthController>(
-          create: (context) =>
-              AuthController(context.read<AuthRepository>())..initialize(),
+          create: (context) {
+            final controller = AuthController(context.read<AuthRepository>());
+            controller.initialize();
+            return controller;
+          },
         ),
         ChangeNotifierProxyProvider<AuthController, SessionController>(
           create: (context) => SessionController(
