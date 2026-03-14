@@ -27,21 +27,11 @@ class ProctorDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sesi Aktif'),
-        flexibleSpace: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).colorScheme.primaryContainer,
-                Theme.of(context).colorScheme.secondaryContainer,
-                Theme.of(context).colorScheme.primaryContainer,
-              ],
-            ),
-          ),
-        ),
         actions: [
-          TextButton(
+          IconButton(
             onPressed: () => authController.signOut(),
-            child: const Text('Logout'),
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:proctor/data/models/user_role.dart';
 
 /// User model used across the Proctor application.
@@ -11,6 +12,19 @@ class AppUser {
     required this.createdAt,
     required this.isActive,
   });
+
+  /// Creates an [AppUser] from a Firestore document snapshot.
+  factory AppUser.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    return AppUser(
+      id: doc.id,
+      email: data['email'] as String,
+      displayName: data['displayName'] as String,
+      role: UserRoleX.fromString(data['role'] as String),
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      isActive: data['isActive'] as bool,
+    );
+  }
 
   /// Unique identifier of the user document.
   final String id;
@@ -29,6 +43,17 @@ class AppUser {
 
   /// Whether the account is active.
   final bool isActive;
+
+  /// Converts to a Firestore-compatible map.
+  Map<String, dynamic> toMap() {
+    return {
+      'email': email,
+      'displayName': displayName,
+      'role': role.firestoreValue,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'isActive': isActive,
+    };
+  }
 
   /// Returns a copy of the user with updated fields.
   AppUser copyWith({

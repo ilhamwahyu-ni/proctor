@@ -1,152 +1,148 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:proctor/data/models/app_user.dart';
 import 'package:proctor/data/models/user_role.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// In-memory auth repository used to scaffold Proctor flows before Firebase.
+/// Auth repository backed by Firebase Auth and Firestore.
 class AuthRepository {
-  /// Creates the repository with seeded users.
-  AuthRepository() : _users = _seedUsers();
+  /// Creates the repository with Firebase instances.
+  AuthRepository()
+    : _auth = FirebaseAuth.instance,
+      _usersRef = FirebaseFirestore.instance.collection('users');
 
-  static const _keyUserId = 'auth_user_id';
+  final FirebaseAuth _auth;
+  final CollectionReference<Map<String, dynamic>> _usersRef;
 
-  final List<AppUser> _users;
-  final Map<String, String> _passwords = {
-    'admin@proctor.local': 'admin123',
-    'proctor@proctor.local': 'proctor123',
-    'pending@proctor.local': 'pending123',
-  };
-
-  static List<AppUser> _seedUsers() {
-    final now = DateTime.now();
-
-    return [
-      AppUser(
-        id: 'u-super-admin',
-        email: 'admin@proctor.local',
-        displayName: 'Koordinator Ujian',
-        role: UserRole.superAdmin,
-        createdAt: now.subtract(const Duration(days: 14)),
-        isActive: true,
-      ),
-      AppUser(
-        id: 'u-proctor-1',
-        email: 'proctor@proctor.local',
-        displayName: 'Pengawas Ruang A',
-        role: UserRole.proctor,
-        createdAt: now.subtract(const Duration(days: 7)),
-        isActive: true,
-      ),
-      AppUser(
-        id: 'u-pending-1',
-        email: 'pending@proctor.local',
-        displayName: 'Calon Pengawas',
-        role: UserRole.pending,
-        createdAt: now.subtract(const Duration(days: 1)),
-        isActive: false,
-      ),
-    ];
+  /// Returns all known users sorted by creation time (newest first).
+  Future<List<AppUser>> getUsers() async {
+    final snapshot = await _usersRef
+        .orderBy('createdAt', descending: true)
+        .get();
+    return snapshot.docs.map(AppUser.fromFirestore).toList();
   }
 
-  /// Returns all known users sorted by creation time.
-  List<AppUser> getUsers() {
-    final users = [..._users]
-      ..sort((left, right) {
-        return right.createdAt.compareTo(left.createdAt);
-      });
+  /// Signs in with email/password via Firebase Auth and returns the
+  /// corresponding Firestore user profile.
+  Future<AppUser?> signIn({
+    required String email,
+    required String password,
+  }) async {
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final uid = credential.user?.uid;
+    if (uid == null) return null;
 
-    return users;
+    final doc = await _usersRef.doc(uid).get();
+    if (!doc.exists) return null;
+    return AppUser.fromFirestore(doc);
   }
 
-  /// Attempts to sign in a user with email and password.
-  AppUser? signIn({required String email, required String password}) {
-    final normalizedEmail = email.trim().toLowerCase();
-    final storedPassword = _passwords[normalizedEmail];
-
-    if (storedPassword != password) {
-      return null;
-    }
-
-    return _users.where((user) => user.email == normalizedEmail).firstOrNull;
-  }
-
-  /// Registers a new pending user.
-  AppUser register({
+  /// Registers a new pending user via Firebase Auth and creates the
+  /// matching Firestore profile.
+  Future<AppUser> register({
     required String email,
     required String displayName,
     required String password,
-  }) {
-    final normalizedEmail = email.trim().toLowerCase();
-    final id = 'u-${_users.length + 1}';
+  }) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final uid = credential.user!.uid;
 
     final user = AppUser(
-      id: id,
-      email: normalizedEmail,
+      id: uid,
+      email: email.trim().toLowerCase(),
       displayName: displayName.trim(),
       role: UserRole.pending,
       createdAt: DateTime.now(),
       isActive: false,
     );
 
-    _users.add(user);
-    _passwords[normalizedEmail] = password;
-
+    await _usersRef.doc(uid).set(user.toMap());
     return user;
   }
 
-  /// Creates a new active proctor account directly from super admin flow.
-  AppUser createManagedProctor({
+  /// Creates a new active proctor account directly (super admin flow).
+  Future<AppUser> createManagedProctor({
     required String email,
     required String displayName,
     required String password,
-  }) {
-    final normalizedEmail = email.trim().toLowerCase();
-    final id = 'u-${_users.length + 1}';
+  }) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final uid = credential.user!.uid;
 
     final user = AppUser(
-      id: id,
-      email: normalizedEmail,
+      id: uid,
+      email: email.trim().toLowerCase(),
       displayName: displayName.trim(),
       role: UserRole.proctor,
       createdAt: DateTime.now(),
       isActive: true,
     );
 
-    _users.add(user);
-    _passwords[normalizedEmail] = password;
+    await _usersRef.doc(uid).set(user.toMap());
 
+    // Sign back in as the super admin after creating the proctor.
+    // The super admin's credentials are lost after createUser, so we
+    // rely on the controller to re-authenticate.
     return user;
   }
 
-  /// Updates a user's role and active flag.
-  AppUser updateUser({required String userId, UserRole? role, bool? isActive}) {
-    final index = _users.indexWhere((user) => user.id == userId);
-    final updatedUser = _users[index].copyWith(role: role, isActive: isActive);
+  /// Updates a user's role and/or active flag in Firestore.
+  Future<AppUser> updateUser({
+    required String userId,
+    UserRole? role,
+    bool? isActive,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (role != null) updates['role'] = role.firestoreValue;
+    if (isActive != null) updates['isActive'] = isActive;
 
-    _users[index] = updatedUser;
-    return updatedUser;
+    await _usersRef.doc(userId).update(updates);
+
+    final doc = await _usersRef.doc(userId).get();
+    return AppUser.fromFirestore(doc);
   }
 
-  /// Returns whether the email is already registered.
-  bool emailExists(String email) {
-    final normalizedEmail = email.trim().toLowerCase();
-    return _users.any((user) => user.email == normalizedEmail);
+  /// Returns whether the email is already registered in the system.
+  Future<bool> emailExists(String email) async {
+    final snapshot = await _usersRef
+        .where('email', isEqualTo: email.trim().toLowerCase())
+        .limit(1)
+        .get();
+    return snapshot.docs.isNotEmpty;
   }
 
-  /// Persists the currently signed-in user ID.
-  Future<void> persistUserId(String? userId) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (userId == null) {
-      await prefs.remove(_keyUserId);
-    } else {
-      await prefs.setString(_keyUserId, userId);
+  /// Restores the currently signed-in user from Firebase Auth state.
+  Future<AppUser?> restoreUser() async {
+    final firebaseUser = _auth.currentUser ?? await _auth.authStateChanges().first;
+    if (firebaseUser == null) return null;
+
+    try {
+      final doc = await _usersRef.doc(firebaseUser.uid).get();
+      if (!doc.exists) return null;
+      return AppUser.fromFirestore(doc);
+    } catch (e) {
+      return null;
     }
   }
 
-  /// Restores the previously signed-in user, if any.
-  Future<AppUser?> restoreUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString(_keyUserId);
-    if (userId == null) return null;
-    return _users.where((u) => u.id == userId).firstOrNull;
+  /// Signs the current user out of Firebase Auth.
+  Future<void> signOut() async {
+    await _auth.signOut();
+  }
+
+  /// Re-authenticates the super admin after creating a managed proctor.
+  Future<void> reAuthenticateSuperAdmin({
+    required String email,
+    required String password,
+  }) async {
+    await _auth.signInWithEmailAndPassword(email: email, password: password);
   }
 }

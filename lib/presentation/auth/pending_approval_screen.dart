@@ -17,9 +17,10 @@ class PendingApprovalScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Menunggu Akses'),
         actions: [
-          TextButton(
+          IconButton(
             onPressed: () => context.read<AuthController>().signOut(),
-            child: const Text('Logout'),
+            icon: const Icon(Icons.logout, color: Colors.white),
+            tooltip: 'Logout',
           ),
         ],
       ),

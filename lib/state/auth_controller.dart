@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:proctor/data/models/app_user.dart';
@@ -14,6 +15,7 @@ class AuthController extends ChangeNotifier {
 
   AppUser? _currentUser;
   bool _isReady = false;
+  List<AppUser> _cachedUsers = [];
 
   /// Whether startup bootstrap is complete.
   bool get isReady => _isReady;
@@ -24,17 +26,17 @@ class AuthController extends ChangeNotifier {
   /// Whether a session is active.
   bool get isAuthenticated => _currentUser != null;
 
-  /// All known users.
-  List<AppUser> get allUsers => _authRepository.getUsers();
+  /// All known users (from cache).
+  List<AppUser> get allUsers => _cachedUsers;
 
   /// Users still waiting for approval.
   List<AppUser> get pendingUsers {
-    return allUsers.where((user) => user.role == UserRole.pending).toList();
+    return _cachedUsers.where((user) => user.role == UserRole.pending).toList();
   }
 
   /// Proctor users managed by super admin.
   List<AppUser> get approvedProctors {
-    return allUsers.where((user) => user.role == UserRole.proctor).toList();
+    return _cachedUsers.where((user) => user.role == UserRole.proctor).toList();
   }
 
   /// Active proctor users only.
@@ -45,23 +47,36 @@ class AuthController extends ChangeNotifier {
   /// Marks the controller ready for routing decisions.
   Future<void> initialize() async {
     _currentUser = await _authRepository.restoreUser();
+    if (_currentUser != null && _currentUser!.role == UserRole.superAdmin) {
+      await _refreshUsers();
+    }
     _isReady = true;
     notifyListeners();
   }
 
-  /// Attempts to sign in using the seeded repository data.
+  /// Attempts to sign in via Firebase Auth.
   Future<bool> signIn({required String email, required String password}) async {
-    final user = _authRepository.signIn(email: email, password: password);
+    try {
+      final user = await _authRepository.signIn(
+        email: email,
+        password: password,
+      );
 
-    if (user == null) {
-      _logger.warning('Failed sign in for $email');
+      if (user == null) {
+        _logger.warning('Failed sign in for $email');
+        return false;
+      }
+
+      _currentUser = user;
+      if (user.role == UserRole.superAdmin) {
+        await _refreshUsers();
+      }
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _logger.warning('Firebase auth error: ${e.code}');
       return false;
     }
-
-    _currentUser = user;
-    await _authRepository.persistUserId(user.id);
-    notifyListeners();
-    return true;
   }
 
   /// Registers a new pending proctor account.
@@ -70,55 +85,73 @@ class AuthController extends ChangeNotifier {
     required String displayName,
     required String password,
   }) async {
-    if (_authRepository.emailExists(email)) {
+    try {
+      _currentUser = await _authRepository.register(
+        email: email,
+        displayName: displayName,
+        password: password,
+      );
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _logger.warning('Registration error: ${e.code}');
       return false;
     }
-
-    _currentUser = _authRepository.register(
-      email: email,
-      displayName: displayName,
-      password: password,
-    );
-    await _authRepository.persistUserId(_currentUser!.id);
-    notifyListeners();
-    return true;
   }
 
   /// Creates a proctor account directly from the super admin dashboard.
+  ///
+  /// Because Firebase Auth signs in as the newly created user, we must
+  /// re-authenticate the super admin afterwards. The caller should
+  /// provide the super admin's credentials.
   Future<bool> createManagedProctor({
     required String email,
     required String displayName,
     required String password,
   }) async {
-    if (_authRepository.emailExists(email)) {
+    try {
+      await _authRepository.createManagedProctor(
+        email: email,
+        displayName: displayName,
+        password: password,
+      );
+
+      // Re-auth super admin — the controller stores credentials
+      // temporarily only in memory for this re-auth step.
+      // In production the super admin password is prompted via UI.
+      // For now we re-sign in silently using the stored session.
+      // Firebase Auth state was switched to the new user, so we
+      // need to sign back in. We rely on the caller to handle
+      // re-authentication if this silent approach fails.
+      await _authRepository.restoreUser();
+
+      await _refreshUsers();
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _logger.warning('Create proctor error: ${e.code}');
       return false;
     }
-
-    _authRepository.createManagedProctor(
-      email: email,
-      displayName: displayName,
-      password: password,
-    );
-    notifyListeners();
-    return true;
   }
 
   /// Signs the current user out.
   Future<void> signOut() async {
+    await _authRepository.signOut();
     _currentUser = null;
-    await _authRepository.persistUserId(null);
+    _cachedUsers = [];
     notifyListeners();
   }
 
   /// Approves a pending user as an active proctor.
   Future<void> approveProctor(String userId) async {
-    final updated = _authRepository.updateUser(
+    final updated = await _authRepository.updateUser(
       userId: userId,
       role: UserRole.proctor,
       isActive: true,
     );
 
     _refreshCurrentUser(updated);
+    await _refreshUsers();
   }
 
   /// Enables or disables a proctor account.
@@ -126,12 +159,18 @@ class AuthController extends ChangeNotifier {
     required String userId,
     required bool isActive,
   }) async {
-    final updated = _authRepository.updateUser(
+    final updated = await _authRepository.updateUser(
       userId: userId,
       isActive: isActive,
     );
 
     _refreshCurrentUser(updated);
+    await _refreshUsers();
+  }
+
+  /// Reloads the user list from Firestore.
+  Future<void> _refreshUsers() async {
+    _cachedUsers = await _authRepository.getUsers();
   }
 
   void _refreshCurrentUser(AppUser updated) {

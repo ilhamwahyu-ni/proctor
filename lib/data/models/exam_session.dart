@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 /// Status values available for an exam session.
 enum SessionStatus { scheduled, active, ended }
 
@@ -8,6 +10,16 @@ extension SessionStatusX on SessionStatus {
     SessionStatus.scheduled => 'Scheduled',
     SessionStatus.active => 'Active',
     SessionStatus.ended => 'Ended',
+  };
+
+  /// Firestore string representation.
+  String get firestoreValue => name;
+
+  /// Parses a Firestore status string back to [SessionStatus].
+  static SessionStatus fromString(String value) => switch (value) {
+    'active' => SessionStatus.active,
+    'ended' => SessionStatus.ended,
+    _ => SessionStatus.scheduled,
   };
 }
 
@@ -26,6 +38,25 @@ class ExamSession {
     required this.endsAt,
     required this.status,
   });
+
+  /// Creates an [ExamSession] from a Firestore document snapshot.
+  factory ExamSession.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data()!;
+    return ExamSession(
+      id: doc.id,
+      name: data['name'] as String,
+      examUrl: data['examUrl'] as String,
+      exitSecret: data['exitSecret'] as String,
+      alarmSecret: data['alarmSecret'] as String,
+      createdBy: data['createdBy'] as String,
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      startsAt: (data['startsAt'] as Timestamp).toDate(),
+      endsAt: (data['endsAt'] as Timestamp).toDate(),
+      status: SessionStatusX.fromString(data['status'] as String),
+    );
+  }
 
   /// Session identifier.
   final String id;
@@ -56,6 +87,21 @@ class ExamSession {
 
   /// Current lifecycle status.
   final SessionStatus status;
+
+  /// Converts to a Firestore-compatible map.
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'examUrl': examUrl,
+      'exitSecret': exitSecret,
+      'alarmSecret': alarmSecret,
+      'createdBy': createdBy,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'startsAt': Timestamp.fromDate(startsAt),
+      'endsAt': Timestamp.fromDate(endsAt),
+      'status': status.firestoreValue,
+    };
+  }
 
   /// Returns a copy with updated fields.
   ExamSession copyWith({

@@ -428,16 +428,16 @@ QR Code adalah satu-satunya jembatan data antara kedua aplikasi. Formatnya:
 }
 ```
 
-| Field                        | Digenerate oleh             | Dipakai oleh | Keterangan                              |
-| ---------------------------- | --------------------------- | ------------ | --------------------------------------- |
-| `url`                        | Super Admin (Proctor App)   | ExamBro      | URL form ujian online                   |
-| `session_id`                 | Super Admin (Proctor App)   | ExamBro      | Identifier sesi untuk logging           |
-| `duration_minutes`           | Super Admin (Proctor App)   | ExamBro      | Durasi ujian dalam menit                |
-| `ends_at`                    | Super Admin (Proctor App)   | ExamBro      | Waktu selesai (ISO 8601 UTC)            |
-| `exit_otp_interval_seconds`  | Proctor App                 | ExamBro      | Interval TOTP exit (default: 3600)      |
-| `alarm_otp_interval_seconds` | Proctor App                 | ExamBro      | Interval TOTP alarm (default: 30)       |
-| `exit_secret`                | Proctor App (random Base32) | Kedua app    | Secret untuk generate exit OTP          |
-| `alarm_secret`               | Proctor App (random Base32) | Kedua app    | Secret untuk generate alarm OTP         |
+| Field                        | Digenerate oleh             | Dipakai oleh | Keterangan                         |
+| ---------------------------- | --------------------------- | ------------ | ---------------------------------- |
+| `url`                        | Super Admin (Proctor App)   | ExamBro      | URL form ujian online              |
+| `session_id`                 | Super Admin (Proctor App)   | ExamBro      | Identifier sesi untuk logging      |
+| `duration_minutes`           | Super Admin (Proctor App)   | ExamBro      | Durasi ujian dalam menit           |
+| `ends_at`                    | Super Admin (Proctor App)   | ExamBro      | Waktu selesai (ISO 8601 UTC)       |
+| `exit_otp_interval_seconds`  | Proctor App                 | ExamBro      | Interval TOTP exit (default: 3600) |
+| `alarm_otp_interval_seconds` | Proctor App                 | ExamBro      | Interval TOTP alarm (default: 30)  |
+| `exit_secret`                | Proctor App (random Base32) | Kedua app    | Secret untuk generate exit OTP     |
+| `alarm_secret`               | Proctor App (random Base32) | Kedua app    | Secret untuk generate alarm OTP    |
 
 **Validasi di ExamBro saat scan QR:**
 

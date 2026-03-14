@@ -37,54 +37,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
-              child: ListView(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                children: [
-                  SectionCard(
-                    title: 'Registrasi Pengawas',
-                    subtitle:
-                        'Akun baru selalu dibuat sebagai pending dan belum bisa melihat sesi.',
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nama Lengkap',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(labelText: 'Email'),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: _isSubmitting ? null : _submit,
-                            child: Text(
-                              _isSubmitting ? 'Mendaftarkan...' : 'Daftar',
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SectionCard(
+                      title: 'Registrasi Pengawas',
+                      subtitle:
+                          'Akun baru selalu dibuat sebagai pending dan belum bisa melihat sesi.',
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Nama Lengkap',
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(labelText: 'Email'),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Password',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: _isSubmitting ? null : _submit,
+                              child: Text(
+                                _isSubmitting ? 'Mendaftarkan...' : 'Daftar',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => context.go('/login'),
-                    child: const Text('Sudah punya akun? Kembali ke login'),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => context.go('/login'),
+                      child: const Text('Sudah punya akun? Kembali ke login'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

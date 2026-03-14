@@ -34,66 +34,66 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
-              child: ListView(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                children: [
-                  Text(
-                    'Proctor App',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w800,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Proctor App',
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Login sebagai super admin atau proctor untuk melihat sesi aktif dan kode OTP lokal.',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 12),
+                    Text(
+                      'Login sebagai super admin atau proctor untuk melihat sesi aktif dan kode OTP lokal.',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  SectionCard(
-                    title: 'Masuk',
-                    subtitle:
-                        'Flow login sekarang memakai repository in-memory sebagai scaffold sebelum Firebase.',
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(labelText: 'Email'),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
+                    const SizedBox(height: 24),
+                    SectionCard(
+                      title: 'Masuk',
+                      subtitle: 'Masuk dengan akun yang terdaftar di Firebase.',
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(labelText: 'Email'),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: _isSubmitting ? null : _submit,
-                            child: Text(
-                              _isSubmitting ? 'Memproses...' : 'Login',
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Password',
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: _isSubmitting ? null : _submit,
+                              child: Text(
+                                _isSubmitting ? 'Memproses...' : 'Login',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  const _DemoAccountsCard(),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => context.go('/register'),
-                    child: const Text(
-                      'Belum punya akun? Daftar sebagai proctor',
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => context.go('/register'),
+                      child: const Text(
+                        'Belum punya akun? Daftar sebagai proctor',
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -122,29 +122,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Email atau password tidak valid.')),
-    );
-  }
-}
-
-class _DemoAccountsCard extends StatelessWidget {
-  const _DemoAccountsCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SectionCard(
-      title: 'Akun Demo',
-      subtitle:
-          'Dipakai untuk scaffold lokal sebelum auth Firebase disambungkan.',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Super Admin: admin@proctor.local / admin123'),
-          SizedBox(height: 8),
-          Text('Proctor: proctor@proctor.local / proctor123'),
-          SizedBox(height: 8),
-          Text('Pending: pending@proctor.local / pending123'),
-        ],
-      ),
     );
   }
 }

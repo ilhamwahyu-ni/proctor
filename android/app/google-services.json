@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "47030456256",
+    "project_id": "exambrodanproktor",
+    "storage_bucket": "exambrodanproktor.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:47030456256:android:6209fb38b6a3b895788225",
+        "android_client_info": {
+          "package_name": "id.my.ilwa.proctor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHmvid6PmuGE2mVWN3BpHIJ6jjA8B_KK8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -22,31 +22,17 @@ class AdminDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard Super Admin'),
-        flexibleSpace: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).colorScheme.primaryContainer,
-                Theme.of(context).colorScheme.secondaryContainer,
-                Theme.of(context).colorScheme.primaryContainer,
-              ],
-            ),
-          ),
-        ),
         actions: [
-          IconButton(
-            onPressed: () => _showCreateProctorDialog(context),
-            icon: const Icon(Icons.person_add_alt_1),
-            tooltip: 'Tambah proctor',
-          ),
+
           IconButton(
             onPressed: () => _showCreateSessionDialog(context),
             icon: const Icon(Icons.add_task),
             tooltip: 'Buat sesi',
           ),
-          TextButton(
+          IconButton(
             onPressed: () => authController.signOut(),
-            child: const Text('Logout'),
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
           ),
         ],
       ),
@@ -75,17 +61,12 @@ class AdminDashboardScreen extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 16),
-            const _CreateProctorSection(),
-            const SizedBox(height: 16),
+
             SectionCard(
               title: 'Proctor Aktif',
               subtitle:
                   'Daftar pengawas aktif menggunakan pagination agar list tetap ringkas.',
-              trailing: FilledButton.icon(
-                onPressed: () => _showCreateProctorDialog(context),
-                icon: const Icon(Icons.person_add_alt_1),
-                label: const Text('Tambah Proctor'),
-              ),
+
               child: _ActiveProctorPagination(
                 proctors: authController.activeProctors,
               ),
@@ -106,6 +87,14 @@ class AdminDashboardScreen extends StatelessWidget {
                     .toList(),
               ),
             ),
+            const SizedBox(height: 32),
+            const Center(
+              child: Text(
+                'Develop by ilwa.my.id',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -117,72 +106,151 @@ class AdminDashboardScreen extends StatelessWidget {
     final urlController = TextEditingController();
     final durationController = TextEditingController(text: '120');
 
+    DateTime? selectedDate = DateTime.now();
+    TimeOfDay? selectedTime = TimeOfDay.now();
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Buat Sesi Baru'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nama sesi'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: urlController,
-                decoration: const InputDecoration(labelText: 'URL ujian'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: durationController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Durasi ujian (menit)',
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Buat Sesi Baru'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Nama sesi'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: urlController,
+                      decoration: const InputDecoration(labelText: 'URL ujian'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: durationController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Durasi ujian (menit)',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        selectedDate == null
+                            ? 'Pilih Tanggal'
+                            : 'Tanggal: ${selectedDate!.toLocal().toString().split(' ')[0]}',
+                      ),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate ?? DateTime.now(),
+                          firstDate: DateTime.now().subtract(
+                            const Duration(days: 1),
+                          ),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (date != null) {
+                          setState(() => selectedDate = date);
+                        }
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        selectedTime == null
+                            ? 'Pilih Jam'
+                            : 'Jam: ${selectedTime!.format(context)}',
+                      ),
+                      trailing: const Icon(Icons.access_time),
+                      onTap: () async {
+                        final time = await showTimePicker(
+                          context: context,
+                          initialTime: selectedTime ?? TimeOfDay.now(),
+                        );
+                        if (time != null) {
+                          setState(() => selectedTime = time);
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final durationMinutes = int.tryParse(durationController.text);
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Batal'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    if (nameController.text.trim().isEmpty ||
+                        urlController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Nama dan URL wajib diisi.')),
+                      );
+                      return;
+                    }
 
-                if (durationMinutes == null || durationMinutes <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Durasi ujian harus berupa angka positif.'),
-                    ),
-                  );
-                  return;
-                }
+                    final durationMinutes = int.tryParse(durationController.text);
+                    if (durationMinutes == null || durationMinutes <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Durasi ujian harus berupa angka positif.'),
+                        ),
+                      );
+                      return;
+                    }
 
-                final session = await context
-                    .read<SessionController>()
-                    .createSession(
-                      name: nameController.text,
-                      examUrl: urlController.text,
-                      durationMinutes: durationMinutes,
+                    if (selectedDate == null || selectedTime == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Pilih tanggal dan waktu ujian.'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final startsAt = DateTime(
+                      selectedDate!.year,
+                      selectedDate!.month,
+                      selectedDate!.day,
+                      selectedTime!.hour,
+                      selectedTime!.minute,
                     );
 
-                if (!context.mounted) {
-                  return;
-                }
+                    // Capture navigator, messenger and router before async gap
+                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                    final navigator = Navigator.of(dialogContext);
+                    final router = GoRouter.of(context);
 
-                Navigator.of(dialogContext).pop();
+                    final session = await context
+                        .read<SessionController>()
+                        .createSession(
+                          name: nameController.text,
+                          examUrl: urlController.text,
+                          durationMinutes: durationMinutes,
+                          startsAt: startsAt,
+                        );
 
-                if (session != null) {
-                  context.push('/sessions/${session.id}');
-                }
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
+                    navigator.pop();
+
+                    if (session != null) {
+                      router.push('/sessions/${session.id}');
+                      scaffoldMessenger.showSnackBar(
+                        const SnackBar(content: Text('Sesi berhasil dibuat.')),
+                      );
+                    }
+                  },
+                  child: const Text('Simpan'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -190,84 +258,6 @@ class AdminDashboardScreen extends StatelessWidget {
     nameController.dispose();
     urlController.dispose();
     durationController.dispose();
-  }
-
-  Future<void> _showCreateProctorDialog(BuildContext context) async {
-    final nameController = TextEditingController();
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Tambah User Proctor'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nama proctor'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password awal'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final success = await context
-                    .read<AuthController>()
-                    .createManagedProctor(
-                      email: emailController.text,
-                      displayName: nameController.text,
-                      password: passwordController.text,
-                    );
-
-                if (!context.mounted) {
-                  return;
-                }
-
-                if (!success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Email proctor sudah terdaftar.'),
-                    ),
-                  );
-                  return;
-                }
-
-                Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('User proctor berhasil ditambahkan.'),
-                  ),
-                );
-              },
-              child: const Text('Tambah'),
-            ),
-          ],
-        );
-      },
-    );
-
-    nameController.dispose();
-    emailController.dispose();
-    passwordController.dispose();
   }
 }
 
@@ -286,8 +276,7 @@ class _OverviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return SectionCard(
       title: 'Ringkasan',
-      subtitle:
-          'Scaffold ini sudah mengikuti pemisahan role dan status sesi aktif.',
+      subtitle: 'Ringkasan sesi dan status approval proctor.',
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
@@ -355,107 +344,6 @@ class _ProctorRow extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-}
-
-class _CreateProctorSection extends StatefulWidget {
-  const _CreateProctorSection();
-
-  @override
-  State<_CreateProctorSection> createState() => _CreateProctorSectionState();
-}
-
-class _CreateProctorSectionState extends State<_CreateProctorSection> {
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionCard(
-      title: 'Tambah Proctor',
-      subtitle:
-          'Super admin bisa membuat akun pengawas aktif secara langsung dari dashboard.',
-      child: Column(
-        children: [
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(labelText: 'Nama proctor'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Email'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _passwordController,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Password awal'),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _isSubmitting ? null : _submit,
-              icon: const Icon(Icons.person_add_alt_1),
-              label: Text(_isSubmitting ? 'Menambahkan...' : 'Tambah Proctor'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _submit() async {
-    final displayName = _nameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-
-    if (displayName.isEmpty || email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nama, email, dan password wajib diisi.')),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-    final success = await context.read<AuthController>().createManagedProctor(
-      email: email,
-      displayName: displayName,
-      password: password,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() => _isSubmitting = false);
-
-    if (!success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email proctor sudah terdaftar.')),
-      );
-      return;
-    }
-
-    _nameController.clear();
-    _emailController.clear();
-    _passwordController.clear();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('User proctor berhasil ditambahkan.')),
     );
   }
 }

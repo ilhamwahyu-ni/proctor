@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:proctor/data/models/exam_session.dart';
 import 'package:proctor/data/models/user_role.dart';
@@ -12,26 +14,61 @@ class SessionController extends ChangeNotifier {
     required AuthController authController,
   }) : _sessionRepository = sessionRepository,
        _authController = authController {
-    _authController.addListener(notifyListeners);
+    _authController.addListener(_onAuthChanged);
+    if (_authController.isAuthenticated) {
+      loadSessions();
+    }
   }
 
   final SessionRepository _sessionRepository;
   AuthController _authController;
+  StreamSubscription<List<ExamSession>>? _sessionSubscription;
 
-  /// Visible sessions for the current role.
-  List<ExamSession> get visibleSessions {
+  List<ExamSession> _sessions = [];
+  bool _isLoading = false;
+
+  /// Whether sessions are currently being fetched.
+  bool get isLoading => _isLoading;
+
+  /// Visible sessions for the current role (from cache).
+  List<ExamSession> get visibleSessions => _sessions;
+
+  /// Loads sessions from Firestore based on the current user's role and listens for updates.
+  void loadSessions() {
+    _sessionSubscription?.cancel();
+
     final role = _authController.currentUser?.role;
-
-    if (role == UserRole.superAdmin) {
-      return _sessionRepository.getAllSessions();
+    if (role == null) {
+      _sessions = [];
+      notifyListeners();
+      return;
     }
 
-    return _sessionRepository.getActiveSessions();
+    _isLoading = true;
+    notifyListeners();
+
+    final stream = role == UserRole.superAdmin
+        ? _sessionRepository.watchAllSessions()
+        : _sessionRepository.watchActiveSessions();
+
+    _sessionSubscription = stream.listen(
+      (sessions) {
+        _sessions = sessions;
+        _isLoading = false;
+        notifyListeners();
+      },
+      onError: (dynamic e, dynamic st) {
+        debugPrint('Error loading sessions stream: $e\n$st');
+        _sessions = [];
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
   }
 
   /// Returns a session by id.
   ExamSession? sessionById(String sessionId) {
-    return _sessionRepository.findById(sessionId);
+    return _sessions.where((s) => s.id == sessionId).firstOrNull;
   }
 
   /// Creates a new scheduled session.
@@ -39,6 +76,7 @@ class SessionController extends ChangeNotifier {
     required String name,
     required String examUrl,
     required int durationMinutes,
+    required DateTime startsAt,
   }) async {
     final currentUser = _authController.currentUser;
 
@@ -46,15 +84,20 @@ class SessionController extends ChangeNotifier {
       return null;
     }
 
-    final session = _sessionRepository.createSession(
-      name: name,
-      examUrl: examUrl,
-      createdBy: currentUser.id,
-      durationMinutes: durationMinutes,
-    );
+    try {
+      final session = await _sessionRepository.createSession(
+        name: name,
+        examUrl: examUrl,
+        createdBy: currentUser.id,
+        durationMinutes: durationMinutes,
+        startsAt: startsAt,
+      );
 
-    notifyListeners();
-    return session;
+      return session;
+    } catch (e, st) {
+      debugPrint('Error creating session: $e\n$st');
+      return null;
+    }
   }
 
   /// Updates the status of a session.
@@ -62,8 +105,7 @@ class SessionController extends ChangeNotifier {
     required String sessionId,
     required SessionStatus status,
   }) async {
-    _sessionRepository.updateStatus(sessionId: sessionId, status: status);
-    notifyListeners();
+    await _sessionRepository.updateStatus(sessionId: sessionId, status: status);
   }
 
   /// Reattaches the auth dependency after provider updates.
@@ -72,15 +114,27 @@ class SessionController extends ChangeNotifier {
       return;
     }
 
-    _authController.removeListener(notifyListeners);
+    _authController.removeListener(_onAuthChanged);
     _authController = authController;
-    _authController.addListener(notifyListeners);
-    notifyListeners();
+    _authController.addListener(_onAuthChanged);
+    // Defer notifyListeners to avoid '_dependents.isEmpty' assertion
+    // during the build phase of Provider update.
+    Future.microtask(() => notifyListeners());
+  }
+
+  void _onAuthChanged() {
+    if (_authController.isAuthenticated) {
+      loadSessions();
+    } else {
+      _sessions = [];
+      notifyListeners();
+    }
   }
 
   @override
   void dispose() {
-    _authController.removeListener(notifyListeners);
+    _sessionSubscription?.cancel();
+    _authController.removeListener(_onAuthChanged);
     super.dispose();
   }
 }

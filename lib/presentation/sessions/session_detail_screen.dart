@@ -95,8 +95,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           children: [
             SectionCard(
               title: 'Informasi Sesi',
-              subtitle:
-                  'OTP tetap digenerate lokal dari secret yang ada di memori scaffold.',
+              subtitle: 'OTP digenerate secara lokal dari secret sesi.',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -134,8 +133,10 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                     Center(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(24),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(20),
@@ -244,8 +245,14 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         data: payload,
         version: QrVersions.auto,
         gapless: true,
-        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
-        dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
+        eyeStyle: const QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: Colors.black,
+        ),
+        dataModuleStyle: const QrDataModuleStyle(
+          dataModuleShape: QrDataModuleShape.square,
+          color: Colors.black,
+        ),
       );
       final imageData = await painter.toImageData(2048);
       final bytes = imageData?.buffer.asUint8List();

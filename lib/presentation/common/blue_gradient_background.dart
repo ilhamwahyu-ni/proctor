@@ -14,14 +14,9 @@ class BlueGradientBackground extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.surfaceContainerLowest,
-            cs.surfaceContainerLow,
-            cs.surfaceContainer,
-          ],
-          stops: const [0.0, 0.5, 1.0],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [cs.surface, cs.surfaceContainerLow],
         ),
       ),
       child: child,
