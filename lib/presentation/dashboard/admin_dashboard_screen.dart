@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:proctor/data/models/app_user.dart';
 import 'package:proctor/data/models/exam_session.dart';
 import 'package:proctor/presentation/common/blue_gradient_background.dart';
@@ -37,64 +38,82 @@ class AdminDashboardScreen extends StatelessWidget {
         ],
       ),
       body: BlueGradientBackground(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
+        child: Column(
           children: [
-            _OverviewCard(
-              totalSessions: sessions.length,
-              activeSessions: sessions
-                  .where((s) => s.status == SessionStatus.active)
-                  .length,
-              pendingUsers: authController.pendingUsers.length,
-            ),
-            const SizedBox(height: 16),
-            SectionCard(
-              title: 'Approval Proctor',
-              subtitle:
-                  'User baru harus diubah dari pending menjadi proctor aktif.',
-              child: authController.pendingUsers.isEmpty
-                  ? const Text('Tidak ada user pending.')
-                  : Column(
-                      children: authController.pendingUsers
-                          .map((user) => _PendingUserRow(user: user))
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  _OverviewCard(
+                    totalSessions: sessions.length,
+                    activeSessions: sessions
+                        .where((s) => s.status == SessionStatus.active)
+                        .length,
+                    pendingUsers: authController.pendingUsers.length,
+                  ),
+                  const SizedBox(height: 16),
+                  SectionCard(
+                    title: 'Approval Proctor',
+                    subtitle:
+                        'User baru harus diubah dari pending menjadi proctor aktif.',
+                    child: authController.pendingUsers.isEmpty
+                        ? const Text('Tidak ada user pending.')
+                        : Column(
+                            children: authController.pendingUsers
+                                .map((user) => _PendingUserRow(user: user))
+                                .toList(),
+                          ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  SectionCard(
+                    title: 'Proctor Aktif',
+                    subtitle:
+                        'Daftar pengawas aktif menggunakan pagination agar list tetap ringkas.',
+
+                    child: _ActiveProctorPagination(
+                      proctors: authController.activeProctors,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SectionCard(
+                    title: 'Sesi Ujian',
+                    subtitle:
+                        'Super admin bisa membuat, mengaktifkan, dan mengakhiri sesi.',
+                    trailing: FilledButton.icon(
+                      onPressed: () => _showCreateSessionDialog(context),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Buat Sesi'),
+                    ),
+                    child: Column(
+                      children: sessions
+                          .map((session) => _SessionRow(session: session))
                           .toList(),
                     ),
-            ),
-            const SizedBox(height: 16),
-
-            SectionCard(
-              title: 'Proctor Aktif',
-              subtitle:
-                  'Daftar pengawas aktif menggunakan pagination agar list tetap ringkas.',
-
-              child: _ActiveProctorPagination(
-                proctors: authController.activeProctors,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            SectionCard(
-              title: 'Sesi Ujian',
-              subtitle:
-                  'Super admin bisa membuat, mengaktifkan, dan mengakhiri sesi.',
-              trailing: FilledButton.icon(
-                onPressed: () => _showCreateSessionDialog(context),
-                icon: const Icon(Icons.add),
-                label: const Text('Buat Sesi'),
-              ),
-              child: Column(
-                children: sessions
-                    .map((session) => _SessionRow(session: session))
-                    .toList(),
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Center(
-              child: Text(
-                'Develop by ilwa.my.id',
-                style: TextStyle(color: Colors.white70),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16, top: 8),
+              child: Center(
+                child: GestureDetector(
+                  onTap: () async {
+                    final url = Uri.parse('https://ilwa.my.id');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: const Text(
+                    'Develop by ilwa.my.id',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 16),
           ],
         ),
       ),
