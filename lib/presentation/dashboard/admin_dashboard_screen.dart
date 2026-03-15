@@ -100,8 +100,10 @@ class AdminDashboardScreen extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () async {
                     final url = Uri.parse('https://ilwa.my.id');
-                    if (await canLaunchUrl(url)) {
+                    try {
                       await launchUrl(url, mode: LaunchMode.externalApplication);
+                    } catch (e) {
+                      debugPrint('Could not launch $url: $e');
                     }
                   },
                   child: const Text(
@@ -121,162 +123,193 @@ class AdminDashboardScreen extends StatelessWidget {
   }
 
   Future<void> _showCreateSessionDialog(BuildContext context) async {
-    final nameController = TextEditingController();
-    final urlController = TextEditingController();
-    final durationController = TextEditingController(text: '120');
-
-    DateTime? selectedDate = DateTime.now();
-    TimeOfDay? selectedTime = TimeOfDay.now();
-
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Buat Sesi Baru'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Nama sesi'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: urlController,
-                      decoration: const InputDecoration(labelText: 'URL ujian'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: durationController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Durasi ujian (menit)',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        selectedDate == null
-                            ? 'Pilih Tanggal'
-                            : 'Tanggal: ${selectedDate!.toLocal().toString().split(' ')[0]}',
-                      ),
-                      trailing: const Icon(Icons.calendar_today),
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate ?? DateTime.now(),
-                          firstDate: DateTime.now().subtract(
-                            const Duration(days: 1),
-                          ),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (date != null) {
-                          setState(() => selectedDate = date);
-                        }
-                      },
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        selectedTime == null
-                            ? 'Pilih Jam'
-                            : 'Jam: ${selectedTime!.format(context)}',
-                      ),
-                      trailing: const Icon(Icons.access_time),
-                      onTap: () async {
-                        final time = await showTimePicker(
-                          context: context,
-                          initialTime: selectedTime ?? TimeOfDay.now(),
-                        );
-                        if (time != null) {
-                          setState(() => selectedTime = time);
-                        }
-                      },
-                    ),
-                  ],
-                ),
+      builder: (dialogContext) => const _CreateSessionDialog(),
+    );
+  }
+}
+
+class _CreateSessionDialog extends StatefulWidget {
+  const _CreateSessionDialog();
+
+  @override
+  State<_CreateSessionDialog> createState() => _CreateSessionDialogState();
+}
+
+class _CreateSessionDialogState extends State<_CreateSessionDialog> {
+  final _nameController = TextEditingController();
+  final _urlController = TextEditingController();
+  final _durationController = TextEditingController(text: '120');
+
+  DateTime? _selectedDate = DateTime.now();
+  TimeOfDay? _selectedTime = TimeOfDay.now();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _urlController.dispose();
+    _durationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Buat Sesi Baru'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nama sesi'),
+              enabled: !_isSubmitting,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _urlController,
+              decoration: const InputDecoration(labelText: 'URL ujian'),
+              enabled: !_isSubmitting,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _durationController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Durasi ujian (menit)',
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Batal'),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    if (nameController.text.trim().isEmpty ||
-                        urlController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Nama dan URL wajib diisi.')),
-                      );
-                      return;
-                    }
+              enabled: !_isSubmitting,
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                _selectedDate == null
+                    ? 'Pilih Tanggal'
+                    : 'Tanggal: ${_selectedDate!.toLocal().toString().split(' ')[0]}',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              enabled: !_isSubmitting,
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate ?? DateTime.now(),
+                  firstDate: DateTime.now().subtract(
+                    const Duration(days: 1),
+                  ),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (date != null && mounted) {
+                  setState(() => _selectedDate = date);
+                }
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                _selectedTime == null
+                    ? 'Pilih Jam'
+                    : 'Jam: ${_selectedTime!.format(context)}',
+              ),
+              trailing: const Icon(Icons.access_time),
+              enabled: !_isSubmitting,
+              onTap: () async {
+                final time = await showTimePicker(
+                  context: context,
+                  initialTime: _selectedTime ?? TimeOfDay.now(),
+                );
+                if (time != null && mounted) {
+                  setState(() => _selectedTime = time);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: Text(_isSubmitting ? 'Menyimpan...' : 'Simpan'),
+        ),
+      ],
+    );
+  }
 
-                    final durationMinutes = int.tryParse(durationController.text);
-                    if (durationMinutes == null || durationMinutes <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Durasi ujian harus berupa angka positif.'),
-                        ),
-                      );
-                      return;
-                    }
+  Future<void> _submit() async {
+    if (_nameController.text.trim().isEmpty ||
+        _urlController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama dan URL wajib diisi.')),
+      );
+      return;
+    }
 
-                    if (selectedDate == null || selectedTime == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Pilih tanggal dan waktu ujian.'),
-                        ),
-                      );
-                      return;
-                    }
+    final durationMinutes = int.tryParse(_durationController.text);
+    if (durationMinutes == null || durationMinutes <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Durasi ujian harus berupa angka positif.'),
+        ),
+      );
+      return;
+    }
 
-                    final startsAt = DateTime(
-                      selectedDate!.year,
-                      selectedDate!.month,
-                      selectedDate!.day,
-                      selectedTime!.hour,
-                      selectedTime!.minute,
-                    );
+    if (_selectedDate == null || _selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih tanggal dan waktu ujian.'),
+        ),
+      );
+      return;
+    }
 
-                    // Capture navigator, messenger and router before async gap
-                    final scaffoldMessenger = ScaffoldMessenger.of(context);
-                    final navigator = Navigator.of(dialogContext);
-                    final router = GoRouter.of(context);
+    setState(() => _isSubmitting = true);
 
-                    final session = await context
-                        .read<SessionController>()
-                        .createSession(
-                          name: nameController.text,
-                          examUrl: urlController.text,
-                          durationMinutes: durationMinutes,
-                          startsAt: startsAt,
-                        );
-
-                    navigator.pop();
-
-                    if (session != null) {
-                      router.push('/sessions/${session.id}');
-                      scaffoldMessenger.showSnackBar(
-                        const SnackBar(content: Text('Sesi berhasil dibuat.')),
-                      );
-                    }
-                  },
-                  child: const Text('Simpan'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final startsAt = DateTime(
+      _selectedDate!.year,
+      _selectedDate!.month,
+      _selectedDate!.day,
+      _selectedTime!.hour,
+      _selectedTime!.minute,
     );
 
-    nameController.dispose();
-    urlController.dispose();
-    durationController.dispose();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final router = GoRouter.of(context);
+
+    try {
+      final session = await context
+          .read<SessionController>()
+          .createSession(
+            name: _nameController.text,
+            examUrl: _urlController.text,
+            durationMinutes: durationMinutes,
+            startsAt: startsAt,
+          );
+
+      if (mounted) {
+        navigator.pop();
+        if (session != null) {
+          router.push('/sessions/${session.id}');
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(content: Text('Sesi berhasil dibuat.')),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Gagal membuat sesi.')),
+        );
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 }
 

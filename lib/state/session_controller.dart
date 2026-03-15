@@ -15,7 +15,10 @@ class SessionController extends ChangeNotifier {
   }) : _sessionRepository = sessionRepository,
        _authController = authController {
     _authController.addListener(_onAuthChanged);
-    if (_authController.isAuthenticated) {
+    // Load immediately only when auth is already ready (app restart scenario).
+    // If not yet ready, _onAuthChanged will trigger loadSessions once
+    // initialize() completes.
+    if (_authController.isReady && _authController.isAuthenticated) {
       loadSessions();
     }
   }
@@ -108,6 +111,50 @@ class SessionController extends ChangeNotifier {
     await _sessionRepository.updateStatus(sessionId: sessionId, status: status);
   }
 
+  /// Updates an existing session's details.
+  Future<ExamSession?> updateSession({
+    required String sessionId,
+    required String name,
+    required String examUrl,
+    required int durationMinutes,
+    required DateTime startsAt,
+  }) async {
+    final currentUser = _authController.currentUser;
+
+    if (currentUser == null || currentUser.role != UserRole.superAdmin) {
+      return null;
+    }
+
+    try {
+      final session = await _sessionRepository.updateSession(
+        sessionId: sessionId,
+        name: name,
+        examUrl: examUrl,
+        durationMinutes: durationMinutes,
+        startsAt: startsAt,
+      );
+      
+      return session;
+    } catch (e, st) {
+      debugPrint('Error updating session: $e\n$st');
+      return null;
+    }
+  }
+
+  /// Deletes a session.
+  Future<void> deleteSession(String sessionId) async {
+    final currentUser = _authController.currentUser;
+    if (currentUser == null || currentUser.role != UserRole.superAdmin) {
+      return;
+    }
+
+    try {
+      await _sessionRepository.deleteSession(sessionId);
+    } catch (e, st) {
+      debugPrint('Error deleting session: $e\n$st');
+    }
+  }
+
   /// Reattaches the auth dependency after provider updates.
   void attachAuth(AuthController authController) {
     if (identical(_authController, authController)) {
@@ -117,9 +164,15 @@ class SessionController extends ChangeNotifier {
     _authController.removeListener(_onAuthChanged);
     _authController = authController;
     _authController.addListener(_onAuthChanged);
-    // Defer notifyListeners to avoid '_dependents.isEmpty' assertion
-    // during the build phase of Provider update.
-    Future.microtask(() => notifyListeners());
+
+    // If auth is already ready and user is logged in (e.g. app restart where
+    // initialize() finished before ProxyProvider triggered this update),
+    // we must manually load sessions because _onAuthChanged won't fire again.
+    if (_authController.isReady && _authController.isAuthenticated) {
+      Future.microtask(loadSessions);
+    } else {
+      Future.microtask(notifyListeners);
+    }
   }
 
   void _onAuthChanged() {

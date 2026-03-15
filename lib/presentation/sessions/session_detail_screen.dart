@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
-import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:open_file/open_file.dart';
 import 'package:otp/otp.dart';
 import 'package:provider/provider.dart';
 import 'package:proctor/data/models/exam_session.dart';
@@ -13,6 +15,7 @@ import 'package:proctor/presentation/common/section_card.dart';
 import 'package:proctor/state/auth_controller.dart';
 import 'package:proctor/state/session_controller.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:saver_gallery/saver_gallery.dart';
 
 /// Session detail screen showing QR payload and live OTP codes.
 class SessionDetailScreen extends StatefulWidget {
@@ -190,12 +193,22 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                           : () => _updateStatus(context, SessionStatus.ended),
                       child: const Text('Akhiri'),
                     ),
+                    
                     FilledButton.tonal(
-                      onPressed: session.status == SessionStatus.scheduled
-                          ? null
-                          : () =>
-                                _updateStatus(context, SessionStatus.scheduled),
-                      child: const Text('Jadwalkan Ulang'),
+                      onPressed: () => _showEditSessionDialog(context, session),
+                      child: const Text('Edit Sesi'),
+                    ),
+                    FilledButton.tonal(
+                      onPressed: () => _showDeleteConfirmation(context),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.errorContainer,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onErrorContainer,
+                      ),
+                      child: const Text('Hapus Sesi'),
                     ),
                   ],
                 ),
@@ -254,27 +267,71 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           color: Colors.black,
         ),
       );
-      final imageData = await painter.toImageData(2048);
-      final bytes = imageData?.buffer.asUint8List();
+      
+      // 1. Generate QR Image
+      final image = await painter.toImage(2048);
+      
+      // 2. Create a Canvas with a white background
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final paint = Paint()..color = Colors.white;
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 2048, 2048), paint);
+      
+      // 3. Draw the QR code on top
+      canvas.drawImage(image, Offset.zero, Paint());
+      
+      // 4. Convert to PNG bytes
+      final picture = recorder.endRecording();
+      final finalImage = await picture.toImage(2048, 2048);
+      final byteData = await finalImage.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      final bytes = byteData?.buffer.asUint8List();
 
       if (bytes == null) {
         throw StateError('QR image data is empty.');
       }
 
-      final savedPath = await FileSaver.instance.saveFile(
-        name: 'qr-${session.id}',
-        bytes: Uint8List.fromList(bytes),
-        fileExtension: 'png',
-        mimeType: MimeType.png,
+      final fileName =
+          'qr-${session.id}-'
+          '${DateTime.now().millisecondsSinceEpoch}.png';
+
+      // Save to Gallery
+      final result = await SaverGallery.saveImage(
+        Uint8List.fromList(bytes),
+        fileName: fileName,
+        androidRelativePath: 'Pictures/Proctor',
+        skipIfExists: false,
       );
 
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('QR berhasil diunduh: $savedPath')),
-      );
+      if (result.isSuccess) {
+        // Try to construct expected public path for OpenFile
+        // /storage/emulated/0/Pictures/Proctor/...
+        final publicPath = '/storage/emulated/0/Pictures/Proctor/$fileName';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('QR berhasil disimpan ke galeri'),
+            action: SnackBarAction(
+              label: 'Lihat',
+              onPressed: () => OpenFile.open(publicPath),
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Gagal menyimpan QR: '
+              '${result.errorMessage ?? 'Unknown error'}',
+            ),
+          ),
+        );
+      }
     } catch (_) {
       if (!mounted) {
         return;
@@ -290,11 +347,65 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     }
   }
 
+  Future<void> _showEditSessionDialog(
+    BuildContext context,
+    ExamSession session,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => _EditSessionDialog(session: session),
+    );
+  }
+
   Future<void> _updateStatus(BuildContext context, SessionStatus status) async {
     await context.read<SessionController>().updateStatus(
       sessionId: widget.sessionId,
       status: status,
     );
+  }
+
+  Future<void> _showDeleteConfirmation(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Hapus Sesi?'),
+          content: const Text(
+            'Sesi ini akan dihapus secara permanen. '
+            'Tindakan ini tidak dapat dibatalkan.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Hapus'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      final router = GoRouter.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+      await context.read<SessionController>().deleteSession(widget.sessionId);
+
+      if (router.canPop()) {
+        router.pop();
+      } else {
+        router.go('/');
+      }
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Sesi berhasil dihapus.')),
+      );
+    }
   }
 }
 
@@ -347,5 +458,201 @@ class _OtpCard extends StatelessWidget {
     }
 
     return 'Berlaku $totalSeconds detik lagi';
+  }
+}
+
+class _EditSessionDialog extends StatefulWidget {
+  const _EditSessionDialog({required this.session});
+
+  final ExamSession session;
+
+  @override
+  State<_EditSessionDialog> createState() => _EditSessionDialogState();
+}
+
+class _EditSessionDialogState extends State<_EditSessionDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _urlController;
+  late final TextEditingController _durationController;
+
+  DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;
+
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.session.name);
+    _urlController = TextEditingController(text: widget.session.examUrl);
+    final durationMinutes = widget.session.endsAt
+        .difference(widget.session.startsAt)
+        .inMinutes;
+    _durationController = TextEditingController(text: '$durationMinutes');
+    _selectedDate = widget.session.startsAt;
+    _selectedTime = TimeOfDay.fromDateTime(widget.session.startsAt);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _urlController.dispose();
+    _durationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Sesi'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nama sesi'),
+              enabled: !_isSubmitting,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _urlController,
+              decoration: const InputDecoration(labelText: 'URL ujian'),
+              enabled: !_isSubmitting,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _durationController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Durasi ujian (menit)',
+              ),
+              enabled: !_isSubmitting,
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                _selectedDate == null
+                    ? 'Pilih Tanggal'
+                    : 'Tanggal: ${_selectedDate!.toLocal().toString().split(' ')[0]}',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              enabled: !_isSubmitting,
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate ?? DateTime.now(),
+                  firstDate: DateTime.now().subtract(
+                    const Duration(days: 1),
+                  ),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (date != null && mounted) {
+                  setState(() => _selectedDate = date);
+                }
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                _selectedTime == null
+                    ? 'Pilih Jam'
+                    : 'Jam: ${_selectedTime!.format(context)}',
+              ),
+              trailing: const Icon(Icons.access_time),
+              enabled: !_isSubmitting,
+              onTap: () async {
+                final time = await showTimePicker(
+                  context: context,
+                  initialTime: _selectedTime ?? TimeOfDay.now(),
+                );
+                if (time != null && mounted) {
+                  setState(() => _selectedTime = time);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: Text(_isSubmitting ? 'Menyimpan...' : 'Simpan'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    if (_nameController.text.trim().isEmpty ||
+        _urlController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama dan URL wajib diisi.')),
+      );
+      return;
+    }
+
+    final durationMinutes = int.tryParse(_durationController.text);
+    if (durationMinutes == null || durationMinutes <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Durasi ujian harus berupa angka positif.'),
+        ),
+      );
+      return;
+    }
+
+    if (_selectedDate == null || _selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih tanggal dan waktu ujian.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    final startsAt = DateTime(
+      _selectedDate!.year,
+      _selectedDate!.month,
+      _selectedDate!.day,
+      _selectedTime!.hour,
+      _selectedTime!.minute,
+    );
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    try {
+      final session = await context.read<SessionController>().updateSession(
+        sessionId: widget.session.id,
+        name: _nameController.text,
+        examUrl: _urlController.text,
+        durationMinutes: durationMinutes,
+        startsAt: startsAt,
+      );
+
+      if (mounted) {
+        navigator.pop();
+        if (session != null) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(content: Text('Sesi berhasil diupdate.')),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Gagal mengupdate sesi.')),
+        );
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 }

@@ -90,6 +90,38 @@ class SessionRepository {
     return ExamSession.fromFirestore(doc);
   }
 
+  /// Updates an existing session's details.
+  Future<ExamSession> updateSession({
+    required String sessionId,
+    required String name,
+    required String examUrl,
+    required int durationMinutes,
+    required DateTime startsAt,
+  }) async {
+    final docRef = _sessionsRef.doc(sessionId);
+    final doc = await docRef.get();
+    if (!doc.exists) {
+      throw Exception('Session not found');
+    }
+    
+    final endsAt = startsAt.add(Duration(minutes: durationMinutes));
+    
+    await docRef.update({
+      'name': name.trim(),
+      'examUrl': examUrl.trim(),
+      'startsAt': Timestamp.fromDate(startsAt),
+      'endsAt': Timestamp.fromDate(endsAt),
+    });
+
+    final updatedDoc = await docRef.get();
+    return ExamSession.fromFirestore(updatedDoc);
+  }
+
+  /// Deletes a session.
+  Future<void> deleteSession(String sessionId) async {
+    await _sessionsRef.doc(sessionId).delete();
+  }
+
   String _generateSecret() {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
     final random = Random.secure();
