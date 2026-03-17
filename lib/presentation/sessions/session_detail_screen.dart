@@ -113,6 +113,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
               title: 'Exit OTP',
               code: exitOtp,
               secondsLeft: exitSecondsLeft,
+              intervalSeconds: _exitOtpIntervalSeconds,
               description:
                   'Dipakai pengawas untuk mengakhiri ujian siswa secara normal. Masa berlaku 60 menit.',
             ),
@@ -121,6 +122,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
               title: 'Alarm OTP',
               code: alarmOtp,
               secondsLeft: alarmSecondsLeft,
+              intervalSeconds: _alarmOtpIntervalSeconds,
               description:
                   'Dipakai admin/pengawas untuk reset layar cheat warning. Berubah tiap 60 detik, valid hingga ~11 menit.',
             ),
@@ -414,19 +416,19 @@ class _OtpCard extends StatelessWidget {
     required this.title,
     required this.code,
     required this.secondsLeft,
+    required this.intervalSeconds,
     required this.description,
   });
 
   final String title;
   final String code;
   final int secondsLeft;
+  final int intervalSeconds;
   final String description;
 
   @override
   Widget build(BuildContext context) {
-    final progress = secondsLeft <= 30
-        ? secondsLeft / 30
-        : (secondsLeft / 3600).clamp(0.0, 1.0);
+    final progress = (secondsLeft / intervalSeconds).clamp(0.0, 1.0);
     final digits = code.split('').join(' ');
 
     return SectionCard(
