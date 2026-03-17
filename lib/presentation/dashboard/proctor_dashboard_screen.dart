@@ -28,11 +28,21 @@ class ProctorDashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Sesi Aktif'),
         actions: [
-          IconButton(
-            onPressed: () => authController.signOut(),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-          ),
+          if (authController.isImpersonating)
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => authController.stopImpersonating(),
+              icon: const Icon(Icons.cancel),
+              label: const Text('Stop Impersonating'),
+            )
+          else
+            IconButton(
+              onPressed: () => authController.signOut(),
+              icon: const Icon(Icons.logout),
+              tooltip: 'Logout',
+            ),
         ],
       ),
       body: BlueGradientBackground(

@@ -14,14 +14,21 @@ class AuthController extends ChangeNotifier {
   final Logger _logger = Logger('AuthController');
 
   AppUser? _currentUser;
+  AppUser? _impersonatedUser;
   bool _isReady = false;
   List<AppUser> _cachedUsers = [];
 
   /// Whether startup bootstrap is complete.
   bool get isReady => _isReady;
 
-  /// Currently signed-in user if any.
-  AppUser? get currentUser => _currentUser;
+  /// Currently signed-in user if any (returns impersonated user if active).
+  AppUser? get currentUser => _impersonatedUser ?? _currentUser;
+  
+  /// The original signed-in user, ignoring impersonation.
+  AppUser? get originalUser => _currentUser;
+
+  /// Whether an impersonation session is active.
+  bool get isImpersonating => _impersonatedUser != null;
 
   /// Whether a session is active.
   bool get isAuthenticated => _currentUser != null;
@@ -138,6 +145,7 @@ class AuthController extends ChangeNotifier {
   Future<void> signOut() async {
     await _authRepository.signOut();
     _currentUser = null;
+    _impersonatedUser = null;
     _cachedUsers = [];
     notifyListeners();
   }
@@ -177,7 +185,23 @@ class AuthController extends ChangeNotifier {
     if (_currentUser?.id == updated.id) {
       _currentUser = updated;
     }
+    if (_impersonatedUser?.id == updated.id) {
+      _impersonatedUser = updated;
+    }
 
+    notifyListeners();
+  }
+
+  /// Impersonates a target user (super admin only).
+  void impersonate(AppUser user) {
+    if (_currentUser?.role != UserRole.superAdmin) return;
+    _impersonatedUser = user;
+    notifyListeners();
+  }
+
+  /// Stops impersonating and returns to the original user.
+  void stopImpersonating() {
+    _impersonatedUser = null;
     notifyListeners();
   }
 }

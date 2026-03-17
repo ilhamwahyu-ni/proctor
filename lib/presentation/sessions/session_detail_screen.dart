@@ -31,7 +31,7 @@ class SessionDetailScreen extends StatefulWidget {
 
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
   static const int _exitOtpIntervalSeconds = 3600;
-  static const int _alarmOtpIntervalSeconds = 30;
+  static const int _alarmOtpIntervalSeconds = 60;
 
   late final Timer _timer;
   DateTime _now = DateTime.now();
@@ -122,7 +122,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
               code: alarmOtp,
               secondsLeft: alarmSecondsLeft,
               description:
-                  'Dipakai admin/pengawas untuk reset layar cheat warning. Masa berlaku 30 detik.',
+                  'Dipakai admin/pengawas untuk reset layar cheat warning. Berubah tiap 60 detik, valid hingga ~11 menit.',
             ),
             if (isSuperAdmin) ...[
               const SizedBox(height: 16),

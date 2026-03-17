@@ -29,9 +29,10 @@ class SessionRepository {
 
   /// Watches only active sessions for proctor views.
   Stream<List<ExamSession>> watchActiveSessions() {
+    // We remove .orderBy('startsAt') from the firestore query to avoid needing
+    // a composite index for (status, startsAt). Instead, we sort the results locally.
     return _sessionsRef
         .where('status', isEqualTo: 'active')
-        .orderBy('startsAt')
         .snapshots()
         .map((snapshot) {
       final list = <ExamSession>[];
@@ -42,6 +43,10 @@ class SessionRepository {
           debugPrint('Error parsing session ${doc.id}: $e\n$st');
         }
       }
+      
+      // Sort the list locally by startsAt
+      list.sort((a, b) => a.startsAt.compareTo(b.startsAt));
+      
       return list;
     });
   }

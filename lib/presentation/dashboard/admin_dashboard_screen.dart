@@ -387,14 +387,26 @@ class _ProctorRow extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Text(user.displayName),
       subtitle: Text(user.email),
-      trailing: Switch(
-        value: user.isActive,
-        onChanged: (isActive) {
-          context.read<AuthController>().setProctorActive(
-            userId: user.id,
-            isActive: isActive,
-          );
-        },
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.remove_red_eye),
+            tooltip: 'Impersonate as ${user.displayName}',
+            onPressed: () {
+              context.read<AuthController>().impersonate(user);
+            },
+          ),
+          Switch(
+            value: user.isActive,
+            onChanged: (isActive) {
+              context.read<AuthController>().setProctorActive(
+                userId: user.id,
+                isActive: isActive,
+              );
+            },
+          ),
+        ],
       ),
     );
   }
